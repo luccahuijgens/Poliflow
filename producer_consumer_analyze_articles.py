@@ -5,6 +5,7 @@ import re
 from textblob import TextBlob as tb
 import math
 from gensim.models import Word2Vec
+import datetime
 
 from bs4 import BeautifulSoup
 from kafka import KafkaConsumer, KafkaProducer
@@ -46,62 +47,72 @@ def connect_kafka_producer():
 
 if __name__ == '__main__':
     print('Running Consumer..')
+    datetime.datetime.now()
     corpus=[]
     wordcorpus=[]
     parsed_records = []
-    topic_name = 'rawarticlesbatch'
-    parsed_topic_name = 'parsedarticlesbatch'
-    news_subjects=['zorg','onderwijs','verkiezingen','economie']
+    allarticletext=[]
+    parsed_articles=[]
+    topic_name = 'rawarticles'
+    parsed_topic_name = 'parsedarticles'
+    news_subjects=['zorg','onderwijs','verkiezingen','economie','koningshuis','regio','binnenland','buitenland','sport','cultuur','media','politiek','technologie']
 
     consumer = KafkaConsumer(topic_name, auto_offset_reset='earliest',
                              bootstrap_servers=['localhost:9092'], api_version=(0, 10), consumer_timeout_ms=1000)
     for msg in consumer:
         message = json.loads(msg.value)
-        print(message);
         messagetext = re.sub('[^a-zA-Z]', ' ', message['body'] )
         messagetext = re.sub(r'\s+', ' ', messagetext)
-        corpus.append(tb(messagetext).lower())
+        bodyblob=tb(messagetext).lower()
+        message['blobtext']=bodyblob
+        corpus.append(message)
+        allarticletext.append(bodyblob)
 
-    for blob in corpus:
+    for message in corpus:
+        blob=message['blobtext']
         for sent in blob.sentences:
             wordcorpus.append(sent.words)
 
     model=Word2Vec(wordcorpus, min_count=2)
 
-    for i, blob in enumerate(corpus):
-		scores = {word: tfidf(word, blob, corpus) for word in blob.words}
-		sorted_words = sorted(scores.items(), key=lambda x: x[1], reverse=True)
-		articlesubjects=[]
-		for word, score in sorted_words[:3]:
-			#print("\tWord: {}, TF-IDF: {}".format(word, round(score, 5)))
-			subjectdictionary={}
-			for subject in news_subjects:
-				try:
-					value=0
-					value=model.wv.similarity(word,subject)
-					subjectdictionary[subject]=value
-				except:
-					print("Similarity ("+word+" + "+subject+": not enough data for subject determination")
+    for message in corpus:
+        blob=message['blobtext']
+        scores={}
+        for word in blob.words:
+            scores[word]=tfidf(word, blob, allarticletext)
+        sorted_words = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+        tagarray=[]
+        articlesubjects=[]
+        for word, score in sorted_words[:3]:
+            #print("\tWord: {}, TF-IDF: {}".format(word, round(score, 5)))
+            subjectdictionary={}
+            for subject in news_subjects:
+                try:
+                    value=0
+                    value=model.wv.similarity(word,subject)
+                    subjectdictionary[subject]=value
+                except:
+                    print("Similarity ("+word+" + "+subject+": not enough data for subject determination")
 
-			sorteddictionary = [(k, subjectdictionary[k]) for k in sorted(subjectdictionary, key=subjectdictionary.get, reverse=True)]
-			counter=0
-			for key,value in sorteddictionary:
-				if counter<3:
-					articlesubjects.append(key)
-					counter+=1
+            sorteddictionary = [(k, subjectdictionary[k]) for k in sorted(subjectdictionary, key=subjectdictionary.get, reverse=True)]
+            counter=0
+            for key,value in sorteddictionary:
+                print(key)
+                if counter<3:
+                    articlesubjects.append(key)
+                    counter+=1
 
-		print (str(blob))
-		distinct_values = set(articlesubjects)
-		print(str(set (articlesubjects)))
-		for distinct_value in distinct_values:
-			if articlesubjects.count(distinct_value)>=2:
-				print("subject: "+str(distinct_value))
-
+        distinct_values = set(articlesubjects)
+        for distinct_value in distinct_values:
+            if articlesubjects.count(distinct_value)>=2:
+                tagarray.append(str(distinct_value))
+        message['tags']=tagarray
+        parsed_articles.append(message)
     consumer.close()
     sleep(5)
 
-    #if len(parsed_records) > 0:
-       #print('Publishing records..')
-        #producer = connect_kafka_producer()
-        #for rec in parsed_records:
-            #publish_message(producer, parsed_topic_name, 'parsed', rec.strip())
+    if len(parsed_articles) > 0:
+        print('Publishing records..')
+        producer = connect_kafka_producer()
+        for rec in parsed_records:
+            publish_message(producer, parsed_topic_name, 'parsed', rec.strip())

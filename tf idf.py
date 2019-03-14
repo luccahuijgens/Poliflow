@@ -36,7 +36,7 @@ def tfidf(word, blob, bloblist):
 sentencelist=[]
 wordcorpus=[]
 corpus=[]
-news_subjects=['zorg','politiek','onderwijs','verkiezingen','economie','binnenland','buitenland','koningshuis','technologie','cultuur','media','regio']
+news_subjects=['zorg','politiek','onderwijs','verkiezingen','economie','binnenland','buitenland','technologie','cultuur','media','regio']
 for file in os.listdir('C:/Users/Lucca.LAPTOP-PKB9NQVU/Downloads/nieuws/2002'):
     text= open('C:/Users/Lucca.LAPTOP-PKB9NQVU/Downloads/nieuws/2002/'+file,'r').read()
     text = re.sub('[^a-zA-Z]', ' ', text )
@@ -48,6 +48,7 @@ for blob in corpus:
         wordcorpus.append(sent.words)
 
 model=Word2Vec(wordcorpus, min_count=2)
+model.save('poliflow.model')
 
 for i, blob in enumerate(corpus):
     #print("Top words in document {}".format(i + 1))
