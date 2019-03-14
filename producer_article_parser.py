@@ -3,9 +3,10 @@ import json
 from bson import json_util
 import requests
 from bs4 import BeautifulSoup
-from kafka import KafkaProducer
+from kafka import KafkaProducer, KafkaConsumer
 from pymongo import MongoClient
 import datetime
+from difflib import SequenceMatcher
 
 
 def publish_message(producer_instance, topic_name, key, value):
@@ -82,12 +83,39 @@ Verleden jaar was dat op 13 April - eveneens in de week voor Pasen - anders. Toe
     all_raw.append(raw2)
     all_raw.append(raw3)
     all_raw.append(raw4)
-    all_article=[]
+    speed_articles=[]
     for rawarticle in all_raw:
-        all_article.append(parse_article(rawarticle))
-    if len(all_article) > 0:
+        speed_articles.append(parse_article(rawarticle))
+    if len(speed_articles) > 0:
         kafka_producer = connect_kafka_producer()
-        for article in all_article:
-            publish_message(kafka_producer, 'rawarticletest', 'raw', article)
+        for article in speed_articles:
+            publish_message(kafka_producer, 'rawarticlesspeed', 'raw', article)
         if kafka_producer is not None:
             kafka_producer.close()
+
+    parsed_topic_name = 'rawarticlebatch'
+    # Notify if a recipe has more than 200 calories
+    calories_threshold = 200
+
+    consumer = KafkaConsumer(parsed_topic_name, auto_offset_reset='earliest',
+                             bootstrap_servers=['localhost:9092'], api_version=(0, 10), consumer_timeout_ms=1000)
+    historicarticles=[]
+    batch_articles=[]
+    for msg in consumer:
+        record = json.loads(msg.value)
+        body = record['body']
+        historicarticles.append(body)
+
+    for rawarticle in all_raw:
+        batch_articles.append(parse_article(rawarticle))
+    if len(batch_articles) > 0:
+        kafka_producer = connect_kafka_producer()
+        for article in batch_articles:
+            shall_publish=True
+            for historicarticle in historicarticles:
+                if SequenceMatcher().ratio(None,article['body'],historicarticle)>.95:
+                    shall_publish=False
+            if shall_publish:
+                publish_message(kafka_producer, 'rawarticlesbatch', 'raw', article)
+    if kafka_producer is not None:
+        kafka_producer.close()

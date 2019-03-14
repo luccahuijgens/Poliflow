@@ -49,8 +49,8 @@ if __name__ == '__main__':
     corpus=[]
     wordcorpus=[]
     parsed_records = []
-    topic_name = 'rawarticletest'
-    parsed_topic_name = 'parsedarticletest'
+    topic_name = 'rawarticlesbatch'
+    parsed_topic_name = 'parsedarticlesbatch'
     news_subjects=['zorg','onderwijs','verkiezingen','economie']
 
     consumer = KafkaConsumer(topic_name, auto_offset_reset='earliest',
