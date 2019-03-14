@@ -1,0 +1,37 @@
+{
+  "settings": {
+    "analysis": {
+      "analyzer": {
+        "std_dutch": {
+          "type": "standard",
+          "stopwords": "_dutch_"
+        }
+      }
+    }
+  },
+  "mappings": {
+    "article": {
+      "properties": {
+        "id": {
+          "type": "text",
+          "cql_collection": "singleton"
+        },
+        "title": {
+          "type":  "text",
+          "cql_collection": "singleton",
+          "analyzer": "std_dutch"
+        },
+        "full_text": {
+          "type": "text",
+          "cql_collection": "singleton",
+          "analyzer": "std_dutch"
+        },
+        "tags": {
+          "type": "text",
+          "boost": 1.4,
+          "cql_collection": "set"
+        }
+      }
+    }
+  }
+}
