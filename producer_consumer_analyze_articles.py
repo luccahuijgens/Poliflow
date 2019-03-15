@@ -50,7 +50,6 @@ if __name__ == '__main__':
     datetime.datetime.now()
     corpus=[]
     wordcorpus=[]
-    parsed_records = []
     allarticletext=[]
     parsed_articles=[]
     topic_name = 'rawarticles'
@@ -61,7 +60,7 @@ if __name__ == '__main__':
                              bootstrap_servers=['localhost:9092'], api_version=(0, 10), consumer_timeout_ms=1000)
     for msg in consumer:
         message = json.loads(msg.value)
-        messagetext = re.sub('[^a-zA-Z]', ' ', message['body'] )
+        messagetext = re.sub('[^a-zA-Z]', ' ', message['text'] )
         messagetext = re.sub(r'\s+', ' ', messagetext)
         bodyblob=tb(messagetext).lower()
         message['blobtext']=bodyblob
@@ -114,5 +113,6 @@ if __name__ == '__main__':
     if len(parsed_articles) > 0:
         print('Publishing records..')
         producer = connect_kafka_producer()
-        for rec in parsed_records:
-            publish_message(producer, parsed_topic_name, 'parsed', rec.strip())
+        for rec in parsed_articles:
+            del rec['blobtext']
+            publish_message(producer, parsed_topic_name, 'parsed', json.dumps(rec))

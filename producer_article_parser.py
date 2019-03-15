@@ -59,6 +59,6 @@ if __name__ == '__main__':
                 if SequenceMatcher().ratio(None,article['text'],historicarticle)>.95:
                     shall_publish=False
             if shall_publish:
-                publish_message(kafka_producer, 'rawarticles', 'raw', article)
+                publish_message(kafka_producer, 'rawarticles', 'raw', json.dumps(article))
     if kafka_producer is not None:
         kafka_producer.close()
